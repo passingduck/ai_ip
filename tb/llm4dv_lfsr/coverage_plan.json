@@ -1,0 +1,19 @@
+{
+  "dut": "configurable_lfsr",
+  "style": "LLM4DV-inspired coverage-feedback stimulus generation",
+  "bins": [
+    "reset_observed",
+    "enable_hold_observed",
+    "load_seed_observed",
+    "zero_seed_observed",
+    "non_zero_seed_observed",
+    "all_state_bits_toggled",
+    "bit_o_zero_observed",
+    "bit_o_one_observed",
+    "state_returned_to_initial_seed",
+    "period_reached",
+    "random_reset_during_active_run",
+    "random_load_during_active_run"
+  ]
+}
+

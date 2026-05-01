@@ -1,0 +1,237 @@
+ 내용:
+
+  # SoC Top 구성 의미와 구현 흐름
+
+  ## SoC Top이란?
+
+  SoC top은 FPGA에 올라가는 최상위 RTL 모듈이다. CPU, RAM, UART, Timer, Button IRQ, LCD controller 같은 IP들을 한 곳에서 연결하고, Tang Nano 9K의 실제 핀
+  과 매핑되는 포트를 제공한다.
+
+  이번 PoC에서 SoC top은 다음 역할을 한다.
+
+  - RISC-V CPU 인스턴스화
+  - firmware가 올라갈 BRAM 연결
+  - memory-mapped IO 주소 decode
+  - UART TX/RX 연결
+  - systick timer interrupt 생성
+  - button rising-edge interrupt 생성
+  - SPI LCD 표시 controller 연결
+  - Tang Nano 9K pin constraint와 맞는 top-level port 제공
+
+  ## 왜 새 SoC Top이 필요한가?
+
+  현재 `learn-fpga`의 `step20.v`는 `Hello, world !` UART 출력에는 충분하지만 RTOS PoC에는 부족하다.
+
+  부족한 점:
+
+  - interrupt input 없음
+  - `mtvec`, `mepc`, `mstatus`, `mcause` 기반 trap 처리 없음
+  - `mret` 복귀 없음
+  - systick timer 없음
+  - button interrupt controller 없음
+  - LCD MMIO peripheral 없음
+
+  그래서 `step20.v`를 그대로 쓰지 않고, interrupt-capable FemtoRV core를 중심으로 새 SoC top을 구성한다.
+
+  ## 사용할 CPU RTL
+
+  사용 후보:
+
+  ```text
+  tools/learn-fpga/FemtoRV/RTL/PROCESSOR/femtorv32_intermissum.v
+
+  특징:
+
+  - RV32IM
+  - CSR 지원
+  - mret 지원
+  - interrupt_request 입력 제공
+  - mtvec, mepc, mstatus, mcause 구현
+  - RTOS trap/context-switch PoC에 적합
+
+  ## 사용할 기존/작성 RTL
+
+  기존 learn-fpga RTL:
+
+  tools/learn-fpga/FemtoRV/RTL/PROCESSOR/femtorv32_intermissum.v
+
+  기존 프로젝트 RTL:
+
+  rtl/uart_tx.sv
+  rtl/lcd114_deepx_simple.sv
+
+  새로 작성한 RTL:
+
+  rtl/irq_timer_button.sv
+
+  추가 예정 RTL:
+
+  rtl/rtos_lcd_mmio.sv
+  fpga/tang9k_rtos_soc_top.sv
+  fpga/tang9k_rtos_soc.cst
+
+  ## SoC 내부 구성
+
+  Tang Nano 9K pins
+      |
+      v
+  tang9k_rtos_soc_top
+      |
+      +-- FemtoRV32 intermissum CPU
+      |
+      +-- BRAM
+      |     - firmware/rtos_lcd_counter/build/rtos_lcd_counter.hex 로 초기화
+      |
+      +-- UART MMIO
+      |     - firmware 로그 출력
+      |
+      +-- irq_timer_button
+      |     - systick timer
+      |     - button debounce
+      |     - rising edge detect
+      |     - IRQ pending/enable/clear
+      |
+      +-- LCD MMIO renderer
+            - idle 표시
+            - count 값 표시
+
+  ## Memory Map
+
+  RAM:
+
+  0x00000000 - firmware / data / stack
+
+  IO page:
+
+  0x00400000 IO_LED
+  0x00400004 IO_UART_DATA
+  0x00400008 IO_UART_STATUS
+  0x0040000c IO_LCD_CMD
+  0x00400010 IO_LCD_VALUE
+  0x00400014 IO_IRQ_PENDING
+  0x00400018 IO_IRQ_ENABLE
+  0x0040001c IO_TIMER_RELOAD
+  0x00400020 IO_TIMER_VALUE
+  0x00400024 IO_BUTTON_STATE
+  0x00400028 IO_BUTTON_DEBOUNCE
+
+  ## Interrupt Flow
+
+  1. Button 또는 timer가 event를 만든다.
+  2. irq_timer_button이 pending bit를 set한다.
+  3. enabled pending bit가 있으면 irq_o=1.
+  4. SoC top이 irq_o를 CPU의 interrupt_request에 연결한다.
+  5. CPU가 interrupt를 accept한다.
+  6. CPU가 mepc에 return PC 저장.
+  7. CPU가 mtvec 주소로 jump.
+  8. firmware trap_entry 실행.
+  9. trap_entry가 register context를 stack에 저장.
+  10. trap_dispatch()가 pending source 확인.
+  11. timer면 systick handler 실행.
+  12. button이면 count task 활성화.
+  13. pending bit clear.
+  14. register restore.
+  15. mret으로 원래 코드 복귀.
+
+  ## Firmware 구조
+
+  firmware/rtos_lcd_counter/
+    Makefile
+    include/
+      csr.h
+      mmio.h
+      rtos.h
+    src/
+      main.c
+      isr.c
+      rtos.c
+    arch/riscv/
+      startup.S
+      trap.S
+    ld/
+      linker.ld
+
+  현재 firmware는 이미 cross compile 된다.
+
+  make -C firmware/rtos_lcd_counter clean all
+
+  생성물:
+
+  firmware/rtos_lcd_counter/build/rtos_lcd_counter.elf
+  firmware/rtos_lcd_counter/build/rtos_lcd_counter.hex
+  firmware/rtos_lcd_counter/build/rtos_lcd_counter.list
+
+  ## 사용하는 툴/라이브러리
+
+  FPGA toolchain:
+
+  oss-cad-suite
+    - yosys
+    - nextpnr-himbaechel
+    - gowin_pack
+    - openFPGALoader
+
+  RISC-V firmware toolchain:
+
+  tools/learn-fpga/FemtoRV/FIRMWARE/TOOLCHAIN/
+    riscv64-unknown-elf-gcc
+    riscv64-unknown-elf-as
+    riscv64-unknown-elf-ld
+    riscv64-unknown-elf-objcopy
+    riscv64-unknown-elf-objdump
+
+  Firmware hex converter:
+
+  tools/learn-fpga/FemtoRV/FIRMWARE/TOOLS/firmware_words
+
+  RTL sources:
+
+  learn-fpga FemtoRV CPU RTL
+  local UART/LCD/timer-button RTL
+
+  ## 다음 구현 순서
+
+  1. rtos_lcd_mmio.sv 작성
+      - LCD_CMD_SHOW_IDLE
+      - LCD_CMD_SHOW_COUNT
+  2. tang9k_rtos_soc_top.sv 작성
+      - CPU 인스턴스
+      - BRAM
+      - IO decoder
+      - UART
+      - IRQ timer/button
+      - LCD MMIO 연결
+  3. tang9k_rtos_soc.cst 작성
+      - clk pin 52
+      - reset button pin 4
+      - user button pin 3
+      - UART pins 17/18
+      - LCD FPC pins 77/76/48/49/47
+      - LEDs pins 10/11/13/14/15/16
+  4. Verilator lint
+  5. Yosys synthesis
+  6. nextpnr place/route
+  7. gowin_pack bitstream 생성
+  8. openFPGALoader로 SRAM upload
+  9. UART 로그 확인
+  10. LCD 확인
+
+  - idle 상태: idle
+  - button press: count 증가
+
+  ## 핵심 체크포인트
+
+  - mtvec에 handler 주소가 제대로 들어가는지
+  - interrupt 발생 시 CPU가 mtvec로 jump하는지
+  - mepc에 복귀 주소가 저장되는지
+  - mret 후 원래 흐름으로 돌아오는지
+  - trap entry에서 register backup/restore가 깨지지 않는지
+  - button jitter가 debounce로 막히는지
+  - rising edge에서만 count task가 시작되는지
+  - systick interrupt가 주기적으로 발생하는지
+  - LCD command write가 실제 화면 변경으로 이어지는지
+
+
+  현재까지 결론은 이겁니다: `Hello, world !`를 띄운 `step20.v`는 smoke test용이고, RTOS/LCD/button interrupt PoC는 `femtorv32_intermissum` 기반 새 SoC top
+  으로 가야 합니다.
+

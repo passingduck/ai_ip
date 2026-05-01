@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+build/
+obj_dir/
+.env/
+.venv/
+tools/
+.scratch/
+.codex/
+.agents/
+firmware/**/build/
+tb/**/results.xml
+tb/**/sim_build/
+*.vcd
+*.fst
+*.fs
