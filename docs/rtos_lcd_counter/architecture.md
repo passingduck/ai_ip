@@ -88,19 +88,46 @@ Tang Nano 9K:
 - UART TX/RX: pins 17/18
 - 1.14-inch FPC SPI LCD: pins 77/76/48/49/47
 
-## Remaining RTL Work
+## Implemented RTL Flow
 
-Next implementation steps:
+The Tang Nano 9K SoC top is [tang9k_rtos_soc_top.sv](/home/sungjin/workspace/ai_ip/fpga/tang9k_rtos_soc_top.sv).
 
-1. Instantiate `femtorv32_intermissum` in a Tang Nano 9K SoC top.
-2. Add RAM initialized from `firmware/rtos_lcd_counter/build/rtos_lcd_counter.hex`.
-3. Add UART MMIO compatible with `IO_UART_DATA` and `IO_UART_STATUS`.
-4. Connect `irq_timer_button.irq_o` to `interrupt_request`.
-5. Add LCD MMIO display accelerator:
-   - `LCD_CMD_SHOW_IDLE` renders `idle`
-   - `LCD_CMD_SHOW_COUNT` renders decimal `IO_LCD_VALUE`
-6. Add Verilator test that forces timer and button pending bits and confirms:
+It currently implements:
+
+- `femtorv32_intermissum` CPU with `interrupt_request`
+- 32 KiB firmware RAM initialized from `firmware/rtos_lcd_counter/build/rtos_lcd_counter.hex`
+- UART TX MMIO for boot/status logs
+- `irq_timer_button` connected to timer/button pending bits
+- LCD MMIO renderer:
+  - `LCD_CMD_SHOW_IDLE` renders `IDLE`
+  - `LCD_CMD_SHOW_COUNT` renders a 4-digit BCD count
+
+Build and board-test commands:
+
+```bash
+scripts/run_rtos_soc_lint.sh
+scripts/run_synth_rtos_soc.sh
+scripts/program_rtos_soc_tang9k.sh --sudo
+sudo scripts/test_rtos_soc_uart.py --port /dev/ttyUSB1
+```
+
+Current Tang Nano 9K synthesis status:
+
+- `build/tang9k_rtos_soc.fs` is generated.
+- 27 MHz timing passes.
+- BSRAM use is 16 of 26 blocks after reducing RAM from 64 KiB to 32 KiB.
+
+## Remaining Verification Work
+
+Next verification steps:
+
+1. Add a Verilator SoC test that runs the firmware for enough cycles to observe the UART boot banner.
+2. Add a direct IRQ test that forces timer/button pending bits and confirms:
    - `mtvec` is reached
    - `mret` returns
    - pending bits are cleared
    - count task state changes after button edge
+3. Run the board image and confirm:
+   - LCD shows `IDLE` after boot
+   - button edge starts the counter
+   - repeated jitter during a press does not create multiple button events

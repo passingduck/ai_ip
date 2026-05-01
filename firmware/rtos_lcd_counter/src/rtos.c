@@ -12,7 +12,12 @@ static void lcd_idle(void) {
 }
 
 static void lcd_count(uint32_t value) {
-    mmio_write32(IO_LCD_VALUE, value);
+    uint32_t bcd =
+        ((value / 1000u) % 10u) << 12 |
+        ((value / 100u) % 10u) << 8 |
+        ((value / 10u) % 10u) << 4 |
+        (value % 10u);
+    mmio_write32(IO_LCD_VALUE, bcd);
     mmio_write32(IO_LCD_CMD, LCD_CMD_SHOW_COUNT);
 }
 

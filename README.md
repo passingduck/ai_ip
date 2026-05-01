@@ -424,14 +424,39 @@ firmware/rtos_lcd_counter/build/rtos_lcd_counter.list
 RTL support block:
 
 ```bash
-source scripts/source_oss_cad_suite.sh
-verilator --lint-only -Wall rtl/irq_timer_button.sv
+scripts/run_rtos_soc_lint.sh
+scripts/run_synth_rtos_soc.sh
 ```
 
 Architecture notes:
 
 ```text
 docs/rtos_lcd_counter/architecture.md
+```
+
+Board upload and UART banner check:
+
+```bash
+scripts/program_rtos_soc_tang9k.sh --sudo
+sudo scripts/test_rtos_soc_uart.py --port /dev/ttyUSB1
+```
+
+Expected behavior:
+
+```text
+UART: RTOS LCD counter boot
+LCD : IDLE after boot; 4-digit count after button edge
+LED : low 4 bits from firmware LED register, plus IRQ/button status
+```
+
+Current synthesis result for Tang Nano 9K:
+
+```text
+LUT4  : about 45%
+DFF   : about 16%
+BSRAM : 16 / 26
+Timing: PASS at 27 MHz
+Output: build/tang9k_rtos_soc.fs
 ```
 
 ## Program Board

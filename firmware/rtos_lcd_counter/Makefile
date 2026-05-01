@@ -30,7 +30,7 @@ $(TARGET).bin: $(TARGET).elf
 	$(OBJCOPY) -O binary $< $@
 
 $(TARGET).hex: $(TARGET).elf $(FIRMWARE_WORDS)
-	$(FIRMWARE_WORDS) $< -ram 65536 -max_addr 65536 -out $@
+	$(FIRMWARE_WORDS) $< -ram 32768 -max_addr 32768 -out $@
 
 $(TARGET).list: $(TARGET).elf
 	$(OBJDUMP) -Mnumeric -D $< > $@
