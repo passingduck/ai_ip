@@ -14,7 +14,7 @@ if [ ! -f build/tang9k_rtos_soc.fs ]; then
 fi
 
 if [ "$use_sudo" -eq 1 ]; then
-  sudo openFPGALoader -b tangnano9k build/tang9k_rtos_soc.fs
+  scripts/program_tang9k.sh --sudo build/tang9k_rtos_soc.fs
 else
-  openFPGALoader -b tangnano9k build/tang9k_rtos_soc.fs
+  scripts/program_tang9k.sh build/tang9k_rtos_soc.fs
 fi
