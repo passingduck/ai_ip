@@ -150,7 +150,7 @@ module rtos_lcd_mmio (
                 4'd8: segment_mask = 7'b1111111;
                 4'd9: segment_mask = 7'b1101111;
                 4'd10: segment_mask = 7'b0000110; // I
-                4'd11: segment_mask = 7'b0111110; // D-like
+                4'd11: segment_mask = 7'b0111111; // D/O-like
                 4'd12: segment_mask = 7'b0111000; // L
                 4'd13: segment_mask = 7'b1111001; // E
                 default: segment_mask = 7'b0000000;
