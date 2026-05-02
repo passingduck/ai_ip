@@ -18,7 +18,10 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=5.0)
     args = parser.parse_args()
 
-    expected = b"RTOS LCD counter boot\r\n"
+    expected_messages = (
+        b"RTOS LCD counter boot\r\n",
+        b"RTOS LCD counter alive\r\n",
+    )
     deadline = time.monotonic() + args.timeout
     data = bytearray()
 
@@ -28,12 +31,13 @@ def main() -> int:
             chunk = ser.read(128)
             if chunk:
                 data.extend(chunk)
-                if expected in data:
-                    print(f"RTOS SoC UART PASS on {args.port} @ {args.baud}: {expected!r}")
-                    return 0
+                for expected in expected_messages:
+                    if expected in data:
+                        print(f"RTOS SoC UART PASS on {args.port} @ {args.baud}: {expected!r}")
+                        return 0
 
     print(f"RTOS SoC UART FAIL on {args.port} @ {args.baud}", file=sys.stderr)
-    print(f"expected: {expected!r}", file=sys.stderr)
+    print(f"expected one of: {expected_messages!r}", file=sys.stderr)
     print(f"received: {bytes(data)!r}", file=sys.stderr)
     return 1
 

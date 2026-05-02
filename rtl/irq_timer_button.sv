@@ -35,12 +35,12 @@ module irq_timer_button #(
     always_comb begin
         bus_rdata = 32'd0;
         unique case (bus_addr)
-            4'h0: if (bus_rd) bus_rdata = irq_pending_q;
-            4'h1: if (bus_rd) bus_rdata = irq_enable_q;
-            4'h2: if (bus_rd) bus_rdata = timer_reload_q;
-            4'h3: if (bus_rd) bus_rdata = timer_count_q;
-            4'h4: if (bus_rd) bus_rdata = {31'd0, button_stable_q};
-            4'h5: if (bus_rd) bus_rdata = debounce_limit_q;
+            4'h0: bus_rdata = irq_pending_q;
+            4'h1: bus_rdata = irq_enable_q;
+            4'h2: bus_rdata = timer_reload_q;
+            4'h3: bus_rdata = timer_count_q;
+            4'h4: bus_rdata = {31'd0, button_stable_q};
+            4'h5: bus_rdata = debounce_limit_q;
             default: begin
             end
         endcase

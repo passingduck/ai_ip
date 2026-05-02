@@ -6,6 +6,19 @@ static volatile uint32_t ticks;
 static volatile uint32_t button_events;
 static volatile uint32_t counter;
 static volatile uint32_t counter_active;
+static volatile uint32_t alive_reported;
+
+static void uart_putc(char ch) {
+    while (mmio_read32(IO_UART_STATUS) & (1u << 9)) {
+    }
+    mmio_write32(IO_UART_DATA, (uint32_t)(uint8_t)ch);
+}
+
+static void uart_puts(const char *s) {
+    while (*s) {
+        uart_putc(*s++);
+    }
+}
 
 static void lcd_idle(void) {
     mmio_write32(IO_LCD_CMD, LCD_CMD_SHOW_IDLE);
@@ -27,6 +40,7 @@ void rtos_init(void) {
     button_events = 0;
     counter = 0;
     counter_active = 0;
+    alive_reported = 0;
     lcd_idle();
 }
 
@@ -64,6 +78,11 @@ void rtos_run(void) {
     uint32_t last_tick = ticks;
 
     while (1) {
+        if (ticks >= 1000u && !alive_reported) {
+            alive_reported = 1;
+            uart_puts("RTOS LCD counter alive\r\n");
+        }
+
         if (last_tick == ticks && button_events == 0) {
             __asm__ volatile ("nop");
             continue;
